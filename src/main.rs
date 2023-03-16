@@ -1,10 +1,13 @@
 use std::path::Path;
+use gentoo_kernel_builder::{Config, BuilderErr, KernelBuilder};
 
-struct Config<'conf> {
-    kernel_boot_path: &'conf Path,
-    initramfs_boot_files: Vec<&'conf Path>,
-}
-fn main() {
+fn main() -> Result<(), BuilderErr> {
+    let config = Config {
+        kernel_boot_path: Path::new("/boot"),
+        initramfs_boot_files: vec![],
+    };
+    let mut kernel_builder = KernelBuilder::new(config);
+    kernel_builder.check_privileges()?;
     /*
         1. check if we have root privileges
         2. check /usr/src for available kernels
@@ -22,4 +25,6 @@ fn main() {
             - `dracut --hostonly --kver <version>-gentoo --force`
         10. change the initramfs version in loader entries (path as config or env)
     */
+
+    Ok(())
 }

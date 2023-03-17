@@ -6,11 +6,10 @@ fn main() -> Result<(), BuilderErr> {
         kernel_boot_path: Path::new("/boot"),
         initramfs_boot_files: vec![],
     };
-    let mut kernel_builder = KernelBuilder::new(config);
+    let kernel_builder = KernelBuilder::new(config);
     kernel_builder.check_privileges()?;
+    kernel_builder.start_build_process();
     /*
-        1. check if we have root privileges
-        2. check /usr/src for available kernels
         3. get prompt for selection
         4. change the symlink in /usr/src for linux to the new kernel version
             - eselect picks this up correctly if you run `eselect kernel list`

@@ -13,15 +13,20 @@ pub enum BuilderErr {
 
 pub struct KernelBuilder<'conf> {
     config: Config<'conf>,
-    versions: Vec<String>
+    versions: Vec<String>,
 }
 
 impl<'conf> KernelBuilder<'conf> {
+    const LINUX_PATH: &str = "/usr/src";
+
     pub fn new(config: Config<'conf>) -> Self {
-        Self {
+        let mut builder = Self {
             config,
             versions: vec![],
-        }
+        };
+        builder.get_available_version();
+
+        builder
     }
 
     pub fn check_privileges(&self) -> Result<(), BuilderErr> {
@@ -32,14 +37,38 @@ impl<'conf> KernelBuilder<'conf> {
         Ok(())
     }
 
-    pub fn get_available_version(&mut self) -> &Vec<String> {
+    fn get_available_version(&mut self) {
         if self.versions.is_empty() {
-            let versions = vec![];
-            // TODO
-            self.versions = versions;
+            self.versions = std::fs::read_dir(Self::LINUX_PATH)
+                .unwrap()
+                .map(|direntry| direntry.unwrap().path())
+                .filter(|p| p.is_dir())
+                .map(|p| p.to_str().unwrap().to_owned())
+                .collect::<Vec<_>>();
         }
+    }
 
-        &self.versions
+    pub fn start_build_process(&self) {
+        self.prompt_for_kernel_version();
+        self.prompt_for_modules_install();
+        self.prompt_for_initramfs_gen();
+        // TODO:
+        // build kernel and copy to boot directory
+        // build and install modules
+        // build initramfs and change loader entries
+        todo!()
+    }
+
+    fn prompt_for_kernel_version(&self) {
+        todo!()
+    }
+
+    fn prompt_for_modules_install(&self) {
+        todo!()
+    }
+
+    fn prompt_for_initramfs_gen(&self) {
+        todo!()
     }
 }
 

@@ -1,5 +1,8 @@
+use dialoguer::console::Term;
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::{MultiSelect, Select};
 use nix::unistd::Uid;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct Config<'conf> {
     pub kernel_boot_path: &'conf Path,
@@ -13,7 +16,7 @@ pub enum BuilderErr {
 
 pub struct KernelBuilder<'conf> {
     config: Config<'conf>,
-    versions: Vec<String>,
+    versions: Vec<(PathBuf, String)>,
 }
 
 impl<'conf> KernelBuilder<'conf> {
@@ -42,25 +45,48 @@ impl<'conf> KernelBuilder<'conf> {
             self.versions = std::fs::read_dir(Self::LINUX_PATH)
                 .unwrap()
                 .map(|direntry| direntry.unwrap().path())
-                .filter(|p| p.is_dir())
-                .map(|p| p.to_str().unwrap().to_owned())
-                .collect::<Vec<_>>();
+                .filter(|p| p.is_dir() && p.starts_with(Self::LINUX_PATH) && !p.is_symlink())
+                .map(|p| {
+                    (
+                        p.clone(),
+                        p.strip_prefix(Self::LINUX_PATH)
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .to_owned(),
+                    )
+                })
+                .filter(|(_, v)| v.starts_with("linux") && v.ends_with("gentoo"))
+                .collect::<Vec<(_, _)>>();
         }
     }
 
     pub fn start_build_process(&self) {
-        self.prompt_for_kernel_version();
-        self.prompt_for_modules_install();
-        self.prompt_for_initramfs_gen();
+        let (path, version) = self.prompt_for_kernel_version();
+        // self.prompt_for_modules_install();
+        // self.prompt_for_initramfs_gen();
         // TODO:
         // build kernel and copy to boot directory
         // build and install modules
         // build initramfs and change loader entries
-        todo!()
     }
 
-    fn prompt_for_kernel_version(&self) {
-        todo!()
+    fn prompt_for_kernel_version(&self) -> (PathBuf, String) {
+        let versions = self
+            .versions
+            .clone()
+            .into_iter()
+            .map(|(_, v)| v)
+            .collect::<Vec<_>>();
+        let selection = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Pick version to build and install")
+            .items(versions.as_slice())
+            .default(0)
+            .interact_on_opt(&Term::stderr())
+            .unwrap()
+            .unwrap();
+        println!("Selected: {:?}", self.versions[selection]);
+        self.versions[selection].clone()
     }
 
     fn prompt_for_modules_install(&self) {

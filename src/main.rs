@@ -19,7 +19,7 @@ fn main() -> Result<(), BuilderErr> {
             - `make -j7`
         7. install modules
             - `make install_modules`
-        8. copy kernel to boot directory (maybe config or env)
+        8. copy kernel to `/boot/vmlinuz-linux-gentoo (maybe config or env)
         9. build initramfs with dracut
             - `dracut --hostonly --kver <version>-gentoo --force`
         10. change the initramfs version in loader entries (path as config or env)

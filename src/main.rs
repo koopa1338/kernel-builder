@@ -1,5 +1,5 @@
+use gentoo_kernel_builder::{BuilderErr, Config, KernelBuilder};
 use std::path::Path;
-use gentoo_kernel_builder::{Config, BuilderErr, KernelBuilder};
 
 fn main() -> Result<(), BuilderErr> {
     let config = Config {

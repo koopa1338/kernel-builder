@@ -1,6 +1,7 @@
 use dialoguer::console::Term;
 use dialoguer::theme::ColorfulTheme;
-use dialoguer::{MultiSelect, Select};
+use dialoguer::Select;
+#[cfg(not(debug_assertions))]
 use nix::unistd::Uid;
 use std::path::{Path, PathBuf};
 
@@ -14,9 +15,15 @@ pub enum BuilderErr {
     NoPrivileges,
 }
 
+#[derive(Clone, Debug)]
+struct VersionEntry {
+    path: PathBuf,
+    version_string: String,
+}
+
 pub struct KernelBuilder<'conf> {
     config: Config<'conf>,
-    versions: Vec<(PathBuf, String)>,
+    versions: Vec<VersionEntry>,
 }
 
 impl<'conf> KernelBuilder<'conf> {
@@ -33,6 +40,7 @@ impl<'conf> KernelBuilder<'conf> {
     }
 
     pub fn check_privileges(&self) -> Result<(), BuilderErr> {
+        #[cfg(not(debug_assertions))]
         if !Uid::effective().is_root() {
             return Err(BuilderErr::NoPrivileges);
         }
@@ -42,27 +50,30 @@ impl<'conf> KernelBuilder<'conf> {
 
     fn get_available_version(&mut self) {
         if self.versions.is_empty() {
-            self.versions = std::fs::read_dir(Self::LINUX_PATH)
-                .unwrap()
-                .map(|direntry| direntry.unwrap().path())
-                .filter(|p| p.is_dir() && p.starts_with(Self::LINUX_PATH) && !p.is_symlink())
-                .map(|p| {
-                    (
-                        p.clone(),
-                        p.strip_prefix(Self::LINUX_PATH)
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .to_owned(),
-                    )
-                })
-                .filter(|(_, v)| v.starts_with("linux") && v.ends_with("gentoo"))
-                .collect::<Vec<(_, _)>>();
+            if let Ok(directories) = std::fs::read_dir(Self::LINUX_PATH) {
+                self.versions = directories
+                    .filter_map(|direntry| direntry.ok())
+                    .map(|dir| dir.path())
+                    .filter(|path| path.starts_with(Self::LINUX_PATH) && !path.is_symlink())
+                    .filter_map(|path| {
+                        path.strip_prefix(Self::LINUX_PATH).ok().and_then(|p| {
+                            let tmp = p.to_owned();
+                            let version_string = tmp.to_string_lossy();
+                            (version_string.starts_with("linux")
+                                && version_string.ends_with("gentoo"))
+                            .then_some(VersionEntry {
+                                path: p.to_owned(),
+                                version_string: version_string.to_string(),
+                            })
+                        })
+                    })
+                    .collect::<Vec<_>>();
+            }
         }
     }
 
     pub fn start_build_process(&self) {
-        let (path, version) = self.prompt_for_kernel_version();
+        let version_entry = self.prompt_for_kernel_version();
         // self.prompt_for_modules_install();
         // self.prompt_for_initramfs_gen();
         // TODO:
@@ -71,12 +82,12 @@ impl<'conf> KernelBuilder<'conf> {
         // build initramfs and change loader entries
     }
 
-    fn prompt_for_kernel_version(&self) -> (PathBuf, String) {
+    fn prompt_for_kernel_version(&self) -> VersionEntry {
         let versions = self
             .versions
             .clone()
             .into_iter()
-            .map(|(_, v)| v)
+            .map(|v| v.version_string)
             .collect::<Vec<_>>();
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Pick version to build and install")
@@ -85,7 +96,6 @@ impl<'conf> KernelBuilder<'conf> {
             .interact_on_opt(&Term::stderr())
             .unwrap()
             .unwrap();
-        println!("Selected: {:?}", self.versions[selection]);
         self.versions[selection].clone()
     }
 

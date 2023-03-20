@@ -2,9 +2,10 @@
 name = "gentoo-kernel-builder"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["koopa1338 <sinner1991@gmail.com"]
+license-file = "LICENSE.md"
+description = "select kernel version from available sources, build and install"
 
 [dependencies]
-dialoguer = "0.10.3"
-nix = "0.26.2"
+dialoguer = "0.10"
+nix = "0.26"

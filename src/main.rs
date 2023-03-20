@@ -8,7 +8,7 @@ fn main() -> Result<(), BuilderErr> {
     };
     let kernel_builder = KernelBuilder::new(config);
     kernel_builder.check_privileges()?;
-    kernel_builder.start_build_process();
+    kernel_builder.start_build_process()?;
     /*
         3. get prompt for selection
         4. change the symlink in /usr/src for linux to the new kernel version

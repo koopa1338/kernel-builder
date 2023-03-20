@@ -3,7 +3,10 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
 #[cfg(not(debug_assertions))]
 use nix::unistd::Uid;
-use std::path::{Path, PathBuf};
+use std::{
+    os::unix,
+    path::{Path, PathBuf},
+};
 
 pub struct Config<'conf> {
     pub kernel_boot_path: &'conf Path,
@@ -13,6 +16,8 @@ pub struct Config<'conf> {
 #[derive(Debug)]
 pub enum BuilderErr {
     NoPrivileges,
+    KernelConfigMissing,
+    LinkingFileError,
 }
 
 #[derive(Clone, Debug)]
@@ -62,7 +67,7 @@ impl<'conf> KernelBuilder<'conf> {
                             (version_string.starts_with("linux")
                                 && version_string.ends_with("gentoo"))
                             .then_some(VersionEntry {
-                                path: p.to_owned(),
+                                path: path.to_owned(),
                                 version_string: version_string.to_string(),
                             })
                         })
@@ -72,14 +77,27 @@ impl<'conf> KernelBuilder<'conf> {
         }
     }
 
-    pub fn start_build_process(&self) {
+    pub fn start_build_process(&self) -> Result<(), BuilderErr> {
         let version_entry = self.prompt_for_kernel_version();
+
+        // create symlink from /usr/src/.config
+        let link = version_entry.path.join(".config");
+        if !link.exists() {
+            let dot_config = PathBuf::from(Self::LINUX_PATH).join(".config");
+            if !dot_config.exists() || !dot_config.is_file() {
+                return Err(BuilderErr::KernelConfigMissing);
+            }
+
+            unix::fs::symlink(dot_config, link).map_err(|_| BuilderErr::LinkingFileError)?;
+        }
+
         // self.prompt_for_modules_install();
         // self.prompt_for_initramfs_gen();
         // TODO:
         // build kernel and copy to boot directory
         // build and install modules
         // build initramfs and change loader entries
+        Ok(())
     }
 
     fn prompt_for_kernel_version(&self) -> VersionEntry {
@@ -112,6 +130,8 @@ impl std::fmt::Display for BuilderErr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let message = match self {
             BuilderErr::NoPrivileges => "builder has to be startet as root",
+            BuilderErr::KernelConfigMissing => "Missing .config file in /usr/src",
+            BuilderErr::LinkingFileError => "Failed to create symlink",
         };
         write!(f, "NoPriviligesError: {}", message)
     }

@@ -26,4 +26,5 @@ please feel free to submit a pull request or open an issue.
 
 # License
 
-This script is released under the MIT License. See the LICENSE file for more information.
+This script is released under the MIT License. See the LICENSE file for more
+information.

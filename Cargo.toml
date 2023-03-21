@@ -8,4 +8,5 @@ description = "select kernel version from available sources, build and install"
 
 [dependencies]
 dialoguer = "0.10"
+indicatif = "0.17.3"
 nix = "0.26"

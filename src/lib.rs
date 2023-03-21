@@ -12,34 +12,17 @@ use std::{
     time::Duration,
 };
 
+mod error;
+pub use error::BuilderErr;
+
 pub struct Config<'conf> {
-    pub kernel_boot_path: &'conf Path,
-    pub initramfs_boot_files: Vec<&'conf Path>,
+    /// Path to the kernel bz image on the boot partition
+    pub kernel_file_path: &'conf Path,
+    /// List of files where the initramfs version has to be updated, e.g. boot entries config files
+    pub boot_entry_config: &'conf Path,
+    /// path to the `.config` file that will be symlinked
+    pub kernel_config_file_path: &'conf Path,
 }
-
-#[derive(Debug)]
-pub enum BuilderErr {
-    NoPrivileges,
-    KernelConfigMissing,
-    KernelBuildFail(String),
-    LinkingFileError(String),
-    PromptError,
-}
-
-impl std::fmt::Display for BuilderErr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let message = match self {
-            BuilderErr::NoPrivileges => "builder has to be startet as root",
-            BuilderErr::KernelConfigMissing => "Missing .config file in /usr/src",
-            BuilderErr::LinkingFileError(msg) => msg,
-            BuilderErr::KernelBuildFail(msg) => msg,
-            BuilderErr::PromptError => "error setting up prompt for user input",
-        };
-        write!(f, "BuildErr: {}", message)
-    }
-}
-
-impl std::error::Error for BuilderErr {}
 
 #[derive(Clone, Debug)]
 struct VersionEntry {
@@ -98,7 +81,7 @@ impl<'conf> KernelBuilder<'conf> {
         }
     }
 
-    pub fn start_build_process(&self) -> Result<(), BuilderErr> {
+    pub fn build(&self) -> Result<(), BuilderErr> {
         let version_entry = self.prompt_for_kernel_version();
 
         // create symlink from /usr/src/.config
@@ -126,7 +109,20 @@ impl<'conf> KernelBuilder<'conf> {
                 .map_err(|_| BuilderErr::LinkingFileError("failed to create symlink".into()))?;
         }
 
-        // building the kernel
+        self.build_kernel(&version_entry)?;
+
+        if self.confirm_prompt("Do you want to install kernel modules?")? {
+            self.install_kernel_modules(&version_entry)?;
+        }
+
+        if self.confirm_prompt("Do you want to generate initramfs with dracut?")? {
+            self.generate_initramfs(&version_entry)?;
+        }
+
+        Ok(())
+    }
+
+    fn build_kernel(&self, version_entry: &VersionEntry) -> Result<(), BuilderErr> {
         let threads: NonZeroUsize =
             std::thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
         let pb = ProgressBar::new_spinner();
@@ -145,60 +141,73 @@ impl<'conf> KernelBuilder<'conf> {
             .wait()
             .map_err(|err| BuilderErr::KernelBuildFail(format!("failed to build kernel: {err}")))?;
         pb.finish_with_message("Finished compiling Kernel");
+        std::fs::copy(
+            &version_entry.path.join("arch/x86/boot/bzImage"),
+            self.config.kernel_file_path,
+        )
+        .map_err(|_| {
+            BuilderErr::KernelBuildFail(format!(
+                "failed to copy kernel to {:?}",
+                self.config.kernel_file_path
+            ))
+        })?;
 
-        // TODO: install to boot
+        Ok(())
+    }
 
-        if self.confirm_prompt("Do you want to install kernel modules?")? {
-            let pb = ProgressBar::new_spinner();
-            pb.enable_steady_tick(Duration::from_millis(120));
-            pb.set_message("Install kernel modules");
-            Command::new("make")
-                .current_dir(&version_entry.path)
-                .arg("modules_install")
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .map_err(|err| {
-                    BuilderErr::KernelBuildFail(format!(
-                        "failed to spawn kernel module install process: {err}"
-                    ))
-                })?
-                .wait()
-                .map_err(|err| {
-                    BuilderErr::KernelBuildFail(format!("failed to install kernel modules: {err}"))
-                })?;
-            pb.finish_with_message("Finished installing modules");
-        }
+    fn install_kernel_modules(&self, version_entry: &VersionEntry) -> Result<(), BuilderErr> {
+        let pb = ProgressBar::new_spinner();
+        pb.enable_steady_tick(Duration::from_millis(120));
+        pb.set_message("Install kernel modules");
+        Command::new("make")
+            .current_dir(&version_entry.path)
+            .arg("modules_install")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|err| {
+                BuilderErr::KernelBuildFail(format!(
+                    "failed to spawn kernel module install process: {err}"
+                ))
+            })?
+            .wait()
+            .map_err(|err| {
+                BuilderErr::KernelBuildFail(format!("failed to install kernel modules: {err}"))
+            })?;
+        pb.finish_with_message("Finished installing modules");
 
-        if self.confirm_prompt("Do you want to generate initramfs with dracut?")? {
-            let pb = ProgressBar::new_spinner();
-            pb.enable_steady_tick(Duration::from_millis(120));
-            pb.set_message("Gen initramfs");
-            Command::new("dracut")
-                .current_dir(&version_entry.path)
-                .args(&[
-                    "--hostonly",
-                    "--kver",
-                    version_entry
-                        .version_string
-                        .strip_prefix("linux-")
-                        .unwrap_or("uknown-gentoo"),
-                    "--force",
-                ])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .map_err(|err| {
-                    BuilderErr::KernelBuildFail(format!(
-                        "failed to spawn process to generate initramfs: {err}"
-                    ))
-                })?
-                .wait()
-                .map_err(|err| {
-                    BuilderErr::KernelBuildFail(format!("failed to generate initramfs: {err}"))
-                })?;
-            pb.finish_with_message("Finished initramfs");
-        }
+        Ok(())
+    }
+
+    fn generate_initramfs(&self, version_entry: &VersionEntry) -> Result<(), BuilderErr> {
+        let pb = ProgressBar::new_spinner();
+        pb.enable_steady_tick(Duration::from_millis(120));
+        pb.set_message("Gen initramfs");
+        Command::new("dracut")
+            .current_dir(&version_entry.path)
+            .args(&[
+                "--hostonly",
+                "--kver",
+                version_entry
+                    .version_string
+                    .strip_prefix("linux-")
+                    .unwrap_or("uknown-gentoo"),
+                "--force",
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|err| {
+                BuilderErr::KernelBuildFail(format!(
+                    "failed to spawn process to generate initramfs: {err}"
+                ))
+            })?
+            .wait()
+            .map_err(|err| {
+                BuilderErr::KernelBuildFail(format!("failed to generate initramfs: {err}"))
+            })?;
+        pb.finish_with_message("Finished initramfs");
+        // TODO: replace initramfs version in loader.conf
 
         Ok(())
     }

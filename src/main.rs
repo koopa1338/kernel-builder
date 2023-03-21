@@ -3,14 +3,14 @@ use std::path::Path;
 
 fn main() -> Result<(), BuilderErr> {
     let config = Config {
-        kernel_boot_path: Path::new("/boot"),
-        initramfs_boot_files: vec![],
+        kernel_file_path: Path::new("/boot/vmlinuz-linux-gentoo"),
+        boot_entry_config: Path::new("/boot/loader/entries/gentoo.conf"),
+        kernel_config_file_path: Path::new("/usr/src/.config"),
     };
     let kernel_builder = KernelBuilder::new(config);
     kernel_builder.check_privileges()?;
-    kernel_builder.start_build_process()?;
+    kernel_builder.build()?;
     /*
-        3. get prompt for selection
         4. change the symlink in /usr/src for linux to the new kernel version
             - eselect picks this up correctly if you run `eselect kernel list`
         5. link config to selected kernel directory if not already there

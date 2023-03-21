@@ -17,7 +17,7 @@ pub struct Config<'conf> {
 pub enum BuilderErr {
     NoPrivileges,
     KernelConfigMissing,
-    LinkingFileError,
+    LinkingFileError(String),
 }
 
 #[derive(Clone, Debug)]
@@ -88,7 +88,21 @@ impl<'conf> KernelBuilder<'conf> {
                 return Err(BuilderErr::KernelConfigMissing);
             }
 
-            unix::fs::symlink(dot_config, link).map_err(|_| BuilderErr::LinkingFileError)?;
+            unix::fs::symlink(dot_config, link)
+                .map_err(|_| BuilderErr::LinkingFileError("failed to create symlink".into()))?;
+        }
+
+        let linux = PathBuf::from(Self::LINUX_PATH).join("linux");
+        let linux_target = linux
+            .read_link()
+            .map_err(|_| {
+                BuilderErr::LinkingFileError(format!("failed to read symlink for {linux:?}"))
+            })?;
+
+        if linux_target.to_string_lossy() != version_entry.version_string {
+            // TODO: unlink linux
+            unix::fs::symlink(linux_target, linux)
+                .map_err(|_| BuilderErr::LinkingFileError("failed to create symlink".into()))?;
         }
 
         // self.prompt_for_modules_install();
@@ -131,7 +145,7 @@ impl std::fmt::Display for BuilderErr {
         let message = match self {
             BuilderErr::NoPrivileges => "builder has to be startet as root",
             BuilderErr::KernelConfigMissing => "Missing .config file in /usr/src",
-            BuilderErr::LinkingFileError => "Failed to create symlink",
+            BuilderErr::LinkingFileError(msg) => msg,
         };
         write!(f, "NoPriviligesError: {}", message)
     }

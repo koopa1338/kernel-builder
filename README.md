@@ -38,9 +38,8 @@ GKB_KERNEL=/boot/efi/vmlinuz-linux-gentoo gentoo-kernel-builder
 
 ## Contributing
 
-This project is in early development and is not yet usable. However,
-contributions are welcome! If you would like to contribute to the project,
-please feel free to submit a pull request or open an issue.
+There is still room for improvements, so if you would like to contribute to the
+project, please feel free to submit a pull request or open an issue.
 
 # License
 

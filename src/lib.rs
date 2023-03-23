@@ -20,8 +20,6 @@ pub struct Config<'conf> {
     pub kernel_file_path: &'conf Path,
     /// Path to the initramfs on the boot partition
     pub initramfs_file_path: &'conf Path,
-    /// List of files where the initramfs version has to be updated, e.g. boot entries config files
-    pub boot_entry_config: &'conf Path,
     /// path to the `.config` file that will be symlinked
     pub kernel_config_file_path: &'conf Path,
 }
@@ -217,7 +215,6 @@ impl<'conf> KernelBuilder<'conf> {
                 BuilderErr::KernelBuildFail(format!("failed to generate initramfs: {err}"))
             })?;
         pb.finish_with_message("Finished initramfs");
-        // TODO: replace initramfs version in loader.conf
 
         Ok(())
     }

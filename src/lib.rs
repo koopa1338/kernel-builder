@@ -83,9 +83,13 @@ impl<'conf> KernelBuilder<'conf> {
 
     pub fn build(&self) -> Result<(), BuilderErr> {
         let version_entry = self.prompt_for_kernel_version();
+        let VersionEntry {
+            path,
+            version_string,
+        } = &version_entry;
 
         // create symlink from /usr/src/.config
-        let link = version_entry.path.join(".config");
+        let link = path.join(".config");
         if !link.exists() {
             let dot_config = PathBuf::from(Self::LINUX_PATH).join(".config");
             if !dot_config.exists() || !dot_config.is_file() {
@@ -101,18 +105,18 @@ impl<'conf> KernelBuilder<'conf> {
             BuilderErr::LinkingFileError(format!("failed to read symlink for {linux:?}"))
         })?;
 
-        if linux_target.to_string_lossy() != version_entry.version_string {
+        if linux_target.to_string_lossy() != *version_string {
             std::fs::remove_file(&linux).map_err(|_| {
                 BuilderErr::LinkingFileError("failed to delete linux symlink".into())
             })?;
-            unix::fs::symlink(&version_entry.path, linux)
+            unix::fs::symlink(&path, linux)
                 .map_err(|_| BuilderErr::LinkingFileError("failed to create symlink".into()))?;
         }
 
-        self.build_kernel(&version_entry)?;
+        self.build_kernel(&path)?;
 
         if self.confirm_prompt("Do you want to install kernel modules?")? {
-            self.install_kernel_modules(&version_entry)?;
+            self.install_kernel_modules(&path)?;
         }
 
         if self.confirm_prompt("Do you want to generate initramfs with dracut?")? {
@@ -122,14 +126,14 @@ impl<'conf> KernelBuilder<'conf> {
         Ok(())
     }
 
-    fn build_kernel(&self, version_entry: &VersionEntry) -> Result<(), BuilderErr> {
+    fn build_kernel(&self, path: &Path) -> Result<(), BuilderErr> {
         let threads: NonZeroUsize =
             std::thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
         pb.set_message("Compiling kernel...");
         Command::new("make")
-            .current_dir(&version_entry.path)
+            .current_dir(&path)
             .arg("-j")
             .arg(threads.to_string())
             .stdout(Stdio::null())
@@ -142,7 +146,7 @@ impl<'conf> KernelBuilder<'conf> {
             .map_err(|err| BuilderErr::KernelBuildFail(format!("failed to build kernel: {err}")))?;
         pb.finish_with_message("Finished compiling Kernel");
         std::fs::copy(
-            &version_entry.path.join("arch/x86/boot/bzImage"),
+            &path.join("arch/x86/boot/bzImage"),
             self.config.kernel_file_path,
         )
         .map_err(|_| {
@@ -155,12 +159,12 @@ impl<'conf> KernelBuilder<'conf> {
         Ok(())
     }
 
-    fn install_kernel_modules(&self, version_entry: &VersionEntry) -> Result<(), BuilderErr> {
+    fn install_kernel_modules(&self, path: &Path) -> Result<(), BuilderErr> {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
         pb.set_message("Install kernel modules");
         Command::new("make")
-            .current_dir(&version_entry.path)
+            .current_dir(&path)
             .arg("modules_install")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -179,17 +183,22 @@ impl<'conf> KernelBuilder<'conf> {
         Ok(())
     }
 
-    fn generate_initramfs(&self, version_entry: &VersionEntry) -> Result<(), BuilderErr> {
+    fn generate_initramfs(
+        &self,
+        VersionEntry {
+            path,
+            version_string,
+        }: &VersionEntry,
+    ) -> Result<(), BuilderErr> {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
         pb.set_message("Gen initramfs");
         Command::new("dracut")
-            .current_dir(&version_entry.path)
+            .current_dir(&path)
             .args(&[
                 "--hostonly",
                 "--kver",
-                version_entry
-                    .version_string
+                version_string
                     .strip_prefix("linux-")
                     .unwrap_or("uknown-gentoo"),
                 "--force",

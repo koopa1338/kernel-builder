@@ -28,7 +28,13 @@ kernel-config = "/usr/src/.config"
 ## Usage
 
 If correctly setup you should just run `gentoo-kernel-builder`, it should ask
-for root permission if not alread run as root.
+for root permission if not alread run as root. You can override options by
+setting environment variables prefixed with `GKB_`. For example to override the
+kernel path:
+
+```sh
+GKB_KERNEL=/boot/efi/vmlinuz-linux-gentoo gentoo-kernel-builder
+```
 
 ## Contributing
 

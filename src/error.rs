@@ -12,13 +12,11 @@ impl std::fmt::Display for BuilderErr {
         let message = match self {
             BuilderErr::NoPrivileges => "builder has to be startet as root",
             BuilderErr::KernelConfigMissing => "Missing .config file in /usr/src",
-            BuilderErr::LinkingFileError(msg) => msg,
-            BuilderErr::KernelBuildFail(msg) => msg,
+            BuilderErr::LinkingFileError(msg) | BuilderErr::KernelBuildFail(msg) => msg,
             BuilderErr::PromptError => "error setting up prompt for user input",
         };
-        write!(f, "BuildErr: {}", message)
+        write!(f, "BuildErr: {message}")
     }
 }
 
 impl std::error::Error for BuilderErr {}
-

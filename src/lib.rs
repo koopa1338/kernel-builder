@@ -18,6 +18,8 @@ pub use error::BuilderErr;
 pub struct Config<'conf> {
     /// Path to the kernel bz image on the boot partition
     pub kernel_file_path: &'conf Path,
+    /// Path to the initramfs on the boot partition
+    pub initramfs_file_path: &'conf Path,
     /// List of files where the initramfs version has to be updated, e.g. boot entries config files
     pub boot_entry_config: &'conf Path,
     /// path to the `.config` file that will be symlinked
@@ -36,8 +38,9 @@ pub struct KernelBuilder<'conf> {
 }
 
 impl<'conf> KernelBuilder<'conf> {
-    const LINUX_PATH: &str = "/usr/src";
+    pub const LINUX_PATH: &str = "/usr/src";
 
+    #[must_use]
     pub fn new(config: Config<'conf>) -> Self {
         let mut builder = Self {
             config,
@@ -61,7 +64,7 @@ impl<'conf> KernelBuilder<'conf> {
         if self.versions.is_empty() {
             if let Ok(directories) = std::fs::read_dir(Self::LINUX_PATH) {
                 self.versions = directories
-                    .filter_map(|direntry| direntry.ok())
+                    .filter_map(Result::ok)
                     .map(|dir| dir.path())
                     .filter(|path| path.starts_with(Self::LINUX_PATH) && !path.is_symlink())
                     .filter_map(|path| {
@@ -71,7 +74,7 @@ impl<'conf> KernelBuilder<'conf> {
                             (version_string.starts_with("linux")
                                 && version_string.ends_with("gentoo"))
                             .then_some(VersionEntry {
-                                path: path.to_owned(),
+                                path: path.clone(),
                                 version_string: version_string.to_string(),
                             })
                         })
@@ -109,14 +112,14 @@ impl<'conf> KernelBuilder<'conf> {
             std::fs::remove_file(&linux).map_err(|_| {
                 BuilderErr::LinkingFileError("failed to delete linux symlink".into())
             })?;
-            unix::fs::symlink(&path, linux)
+            unix::fs::symlink(path, linux)
                 .map_err(|_| BuilderErr::LinkingFileError("failed to create symlink".into()))?;
         }
 
-        self.build_kernel(&path)?;
+        self.build_kernel(path)?;
 
         if self.confirm_prompt("Do you want to install kernel modules?")? {
-            self.install_kernel_modules(&path)?;
+            self.install_kernel_modules(path)?;
         }
 
         if self.confirm_prompt("Do you want to generate initramfs with dracut?")? {
@@ -133,9 +136,8 @@ impl<'conf> KernelBuilder<'conf> {
         pb.enable_steady_tick(Duration::from_millis(120));
         pb.set_message("Compiling kernel...");
         Command::new("make")
-            .current_dir(&path)
-            .arg("-j")
-            .arg(threads.to_string())
+            .current_dir(path)
+            .args(["-j", &threads.to_string()])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
@@ -146,7 +148,7 @@ impl<'conf> KernelBuilder<'conf> {
             .map_err(|err| BuilderErr::KernelBuildFail(format!("failed to build kernel: {err}")))?;
         pb.finish_with_message("Finished compiling Kernel");
         std::fs::copy(
-            &path.join("arch/x86/boot/bzImage"),
+            path.join("arch/x86/boot/bzImage"),
             self.config.kernel_file_path,
         )
         .map_err(|_| {
@@ -164,7 +166,7 @@ impl<'conf> KernelBuilder<'conf> {
         pb.enable_steady_tick(Duration::from_millis(120));
         pb.set_message("Install kernel modules");
         Command::new("make")
-            .current_dir(&path)
+            .current_dir(path)
             .arg("modules_install")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -194,14 +196,13 @@ impl<'conf> KernelBuilder<'conf> {
         pb.enable_steady_tick(Duration::from_millis(120));
         pb.set_message("Gen initramfs");
         Command::new("dracut")
-            .current_dir(&path)
-            .args(&[
+            .current_dir(path)
+            .args([
                 "--hostonly",
                 "--kver",
-                version_string
-                    .strip_prefix("linux-")
-                    .unwrap_or("uknown-gentoo"),
+                version_string.strip_prefix("linux-").unwrap(),
                 "--force",
+                self.config.initramfs_file_path.to_string_lossy().as_ref(),
             ])
             .stdout(Stdio::null())
             .stderr(Stdio::null())

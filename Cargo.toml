@@ -7,6 +7,8 @@ license-file = "LICENSE.md"
 description = "select kernel version from available sources, build and install"
 
 [dependencies]
+config = "0.13"
 dialoguer = "0.10"
-indicatif = "0.17.3"
-nix = "0.26"
+indicatif = "0.17"
+serde = { version = "1.0", features = ["derive"] }
+sudo = "0.6"

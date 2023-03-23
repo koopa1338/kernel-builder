@@ -2,8 +2,7 @@ use dialoguer::theme::ColorfulTheme;
 use dialoguer::Select;
 use dialoguer::{console::Term, Confirm};
 use indicatif::ProgressBar;
-#[cfg(not(debug_assertions))]
-use nix::unistd::Uid;
+use serde::Deserialize;
 use std::num::NonZeroUsize;
 use std::{
     os::unix,
@@ -15,13 +14,17 @@ use std::{
 mod error;
 pub use error::BuilderErr;
 
-pub struct Config<'conf> {
+#[derive(Debug, Deserialize)]
+pub struct GKBConfig {
     /// Path to the kernel bz image on the boot partition
-    pub kernel_file_path: &'conf Path,
+    #[serde(rename = "kernel")]
+    pub kernel_file_path: PathBuf,
     /// Path to the initramfs on the boot partition
-    pub initramfs_file_path: &'conf Path,
+    #[serde(rename = "initramfs")]
+    pub initramfs_file_path: PathBuf,
     /// path to the `.config` file that will be symlinked
-    pub kernel_config_file_path: &'conf Path,
+    #[serde(rename = "kernel-config")]
+    pub kernel_config_file_path: PathBuf,
 }
 
 #[derive(Clone, Debug)]
@@ -30,16 +33,17 @@ struct VersionEntry {
     version_string: String,
 }
 
-pub struct KernelBuilder<'conf> {
-    config: Config<'conf>,
+#[derive(Debug)]
+pub struct KernelBuilder {
+    config: GKBConfig,
     versions: Vec<VersionEntry>,
 }
 
-impl<'conf> KernelBuilder<'conf> {
+impl KernelBuilder {
     pub const LINUX_PATH: &str = "/usr/src";
 
     #[must_use]
-    pub fn new(config: Config<'conf>) -> Self {
+    pub fn new(config: GKBConfig) -> Self {
         let mut builder = Self {
             config,
             versions: vec![],
@@ -47,15 +51,6 @@ impl<'conf> KernelBuilder<'conf> {
         builder.get_available_version();
 
         builder
-    }
-
-    pub fn check_privileges(&self) -> Result<(), BuilderErr> {
-        #[cfg(not(debug_assertions))]
-        if !Uid::effective().is_root() {
-            return Err(BuilderErr::NoPrivileges);
-        }
-
-        Ok(())
     }
 
     fn get_available_version(&mut self) {
@@ -92,7 +87,7 @@ impl<'conf> KernelBuilder<'conf> {
         // create symlink from /usr/src/.config
         let link = path.join(".config");
         if !link.exists() {
-            let dot_config = PathBuf::from(Self::LINUX_PATH).join(".config");
+            let dot_config = &self.config.kernel_config_file_path;
             if !dot_config.exists() || !dot_config.is_file() {
                 return Err(BuilderErr::KernelConfigMissing);
             }
@@ -147,7 +142,7 @@ impl<'conf> KernelBuilder<'conf> {
         pb.finish_with_message("Finished compiling Kernel");
         std::fs::copy(
             path.join("arch/x86/boot/bzImage"),
-            self.config.kernel_file_path,
+            self.config.kernel_file_path.clone(),
         )
         .map_err(|_| {
             BuilderErr::KernelBuildFail(format!(

@@ -12,11 +12,23 @@ the boot partition, as well as generating the necessary initramfs.
 
 ## Installation
 
-**TODO**
+```sh
+git clone https://github.com/koopa1338/gentoo-kernel-builder
+cd gentoo-kernel-builder
+cargo install --path .
+```
+
+You also need a `config.toml` with the needed paths configured in `$HOME/.config/gkb/config.toml`:
+```toml
+kernel = "/boot/vmlinuz-linux-gentoo"
+initramfs = "/boot/initramfs-linux-gentoo"
+kernel-config = "/usr/src/.config"
+```
 
 ## Usage
 
-**TODO**
+If correctly setup you should just run `gentoo-kernel-builder`, it should ask
+for root permission if not alread run as root.
 
 ## Contributing
 
@@ -26,5 +38,5 @@ please feel free to submit a pull request or open an issue.
 
 # License
 
-This script is released under the MIT License. See the LICENSE file for more
+This script is released under the EUPL License. See the LICENSE file for more
 information.

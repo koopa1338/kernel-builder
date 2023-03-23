@@ -1,27 +1,18 @@
-#[derive(Debug)]
+use config::ConfigError;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum BuilderErr {
+    #[error("Error retrieving root privileges")]
     NoPrivileges,
+    #[error("Missing kernel configuration file")]
     KernelConfigMissing,
-    KernelBuildFail(String),
-    LinkingFileError(String),
-    ConfigParseError(String),
-    ConfigFileMissing,
-    PromptError,
+    #[error("Error building kernel: {0}")]
+    KernelBuildFail(std::io::Error),
+    #[error("Symlinking file failed: {0}")]
+    LinkingFileError(std::io::Error),
+    #[error("Could not parse config file: {0}")]
+    ConfigError(#[from] ConfigError),
+    #[error("Could not create prompt: {0}")]
+    PromptError(std::io::Error),
 }
-
-impl std::fmt::Display for BuilderErr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let message = match self {
-            Self::NoPrivileges => "builder has to be startet as root",
-            Self::KernelConfigMissing => "Missing .config file in /usr/src",
-            Self::LinkingFileError(msg)
-            | Self::KernelBuildFail(msg)
-            | Self::ConfigParseError(msg) => msg,
-            Self::PromptError => "error setting up prompt for user input",
-            Self::ConfigFileMissing => "Config missing, put a config file in $HOME/.config/gkb/",
-        };
-        write!(f, "BuildErr: {message}")
-    }
-}
-
-impl std::error::Error for BuilderErr {}

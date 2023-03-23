@@ -92,21 +92,17 @@ impl KernelBuilder {
                 return Err(BuilderErr::KernelConfigMissing);
             }
 
-            unix::fs::symlink(dot_config, link)
-                .map_err(|_| BuilderErr::LinkingFileError("failed to create symlink".into()))?;
+            unix::fs::symlink(dot_config, link).map_err(|err| BuilderErr::LinkingFileError(err))?;
         }
 
         let linux = PathBuf::from(Self::LINUX_PATH).join("linux");
-        let linux_target = linux.read_link().map_err(|_| {
-            BuilderErr::LinkingFileError(format!("failed to read symlink for {linux:?}"))
-        })?;
+        let linux_target = linux
+            .read_link()
+            .map_err(|err| BuilderErr::LinkingFileError(err))?;
 
         if linux_target.to_string_lossy() != *version_string {
-            std::fs::remove_file(&linux).map_err(|_| {
-                BuilderErr::LinkingFileError("failed to delete linux symlink".into())
-            })?;
-            unix::fs::symlink(path, linux)
-                .map_err(|_| BuilderErr::LinkingFileError("failed to create symlink".into()))?;
+            std::fs::remove_file(&linux).map_err(|err| BuilderErr::LinkingFileError(err))?;
+            unix::fs::symlink(path, linux).map_err(|err| BuilderErr::LinkingFileError(err))?;
         }
 
         self.build_kernel(path)?;
@@ -134,22 +130,15 @@ impl KernelBuilder {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|err| {
-                BuilderErr::KernelBuildFail(format!("failed to spawn build process: {err}"))
-            })?
+            .map_err(|err| BuilderErr::KernelBuildFail(err))?
             .wait()
-            .map_err(|err| BuilderErr::KernelBuildFail(format!("failed to build kernel: {err}")))?;
+            .map_err(|err| BuilderErr::KernelBuildFail(err))?;
         pb.finish_with_message("Finished compiling Kernel");
         std::fs::copy(
             path.join("arch/x86/boot/bzImage"),
             self.config.kernel_file_path.clone(),
         )
-        .map_err(|_| {
-            BuilderErr::KernelBuildFail(format!(
-                "failed to copy kernel to {:?}",
-                self.config.kernel_file_path
-            ))
-        })?;
+        .map_err(|err| BuilderErr::KernelBuildFail(err))?;
 
         Ok(())
     }
@@ -165,13 +154,11 @@ impl KernelBuilder {
             .stderr(Stdio::null())
             .spawn()
             .map_err(|err| {
-                BuilderErr::KernelBuildFail(format!(
-                    "failed to spawn kernel module install process: {err}"
-                ))
+                BuilderErr::KernelBuildFail(err)
             })?
             .wait()
             .map_err(|err| {
-                BuilderErr::KernelBuildFail(format!("failed to install kernel modules: {err}"))
+                BuilderErr::KernelBuildFail(err)
             })?;
         pb.finish_with_message("Finished installing modules");
 
@@ -201,13 +188,11 @@ impl KernelBuilder {
             .stderr(Stdio::null())
             .spawn()
             .map_err(|err| {
-                BuilderErr::KernelBuildFail(format!(
-                    "failed to spawn process to generate initramfs: {err}"
-                ))
+                BuilderErr::KernelBuildFail(err)
             })?
             .wait()
             .map_err(|err| {
-                BuilderErr::KernelBuildFail(format!("failed to generate initramfs: {err}"))
+                BuilderErr::KernelBuildFail(err)
             })?;
         pb.finish_with_message("Finished initramfs");
 
@@ -235,6 +220,6 @@ impl KernelBuilder {
         Confirm::new()
             .with_prompt(message)
             .interact()
-            .map_err(|_| BuilderErr::PromptError)
+            .map_err(|err| BuilderErr::PromptError(err))
     }
 }

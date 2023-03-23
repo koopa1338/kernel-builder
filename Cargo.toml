@@ -12,3 +12,4 @@ dialoguer = "0.10"
 indicatif = "0.17"
 serde = { version = "1.0", features = ["derive"] }
 sudo = "0.6"
+thiserror = "1.0.40"

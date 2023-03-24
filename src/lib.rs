@@ -3,6 +3,7 @@ use dialoguer::Select;
 use dialoguer::{console::Term, Confirm};
 use indicatif::ProgressBar;
 use serde::Deserialize;
+use std::io::{BufRead, BufReader};
 use std::num::NonZeroUsize;
 use std::{
     os::unix,
@@ -123,16 +124,29 @@ impl KernelBuilder {
             std::thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
-        pb.set_message("Compiling kernel...");
-        Command::new("make")
+
+        let mut cmd = Command::new("make")
             .current_dir(path)
             .args(["-j", &threads.to_string()])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stdout(Stdio::piped())
             .spawn()
-            .map_err(|err| BuilderErr::KernelBuildFail(err))?
-            .wait()
             .map_err(|err| BuilderErr::KernelBuildFail(err))?;
+
+        {
+            let stdout = cmd.stdout.as_mut().unwrap();
+            let stdout_reader = BufReader::new(stdout);
+            let stdout_lines = stdout_reader.lines();
+
+            for line in stdout_lines {
+                pb.set_message(format!(
+                    "Compiling kernel: {}",
+                    line.map_err(|err| BuilderErr::KernelBuildFail(err))?
+                ));
+            }
+        }
+
+        cmd.wait().map_err(|err| BuilderErr::KernelBuildFail(err))?;
+
         pb.finish_with_message("Finished compiling Kernel");
         std::fs::copy(
             path.join("arch/x86/boot/bzImage"),
@@ -153,13 +167,9 @@ impl KernelBuilder {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|err| {
-                BuilderErr::KernelBuildFail(err)
-            })?
+            .map_err(|err| BuilderErr::KernelBuildFail(err))?
             .wait()
-            .map_err(|err| {
-                BuilderErr::KernelBuildFail(err)
-            })?;
+            .map_err(|err| BuilderErr::KernelBuildFail(err))?;
         pb.finish_with_message("Finished installing modules");
 
         Ok(())
@@ -174,8 +184,7 @@ impl KernelBuilder {
     ) -> Result<(), BuilderErr> {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
-        pb.set_message("Gen initramfs");
-        Command::new("dracut")
+        let mut cmd = Command::new("dracut")
             .current_dir(path)
             .args([
                 "--hostonly",
@@ -184,16 +193,24 @@ impl KernelBuilder {
                 "--force",
                 self.config.initramfs_file_path.to_string_lossy().as_ref(),
             ])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stdout(Stdio::piped())
             .spawn()
-            .map_err(|err| {
-                BuilderErr::KernelBuildFail(err)
-            })?
-            .wait()
-            .map_err(|err| {
-                BuilderErr::KernelBuildFail(err)
-            })?;
+            .map_err(|err| BuilderErr::KernelBuildFail(err))?;
+
+        {
+            let stdout = cmd.stdout.as_mut().unwrap();
+            let stdout_reader = BufReader::new(stdout);
+            let stdout_lines = stdout_reader.lines();
+
+            for line in stdout_lines {
+                pb.set_message(format!(
+                    "Generating initramfs: {}",
+                    line.map_err(|err| BuilderErr::KernelBuildFail(err))?
+                ));
+            }
+        }
+
+        cmd.wait().map_err(|err| BuilderErr::KernelBuildFail(err))?;
         pb.finish_with_message("Finished initramfs");
 
         Ok(())

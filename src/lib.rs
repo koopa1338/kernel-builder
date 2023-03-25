@@ -16,7 +16,7 @@ mod error;
 pub use error::BuilderErr;
 
 #[derive(Debug, Deserialize)]
-pub struct GKBConfig {
+pub struct KBConfig {
     /// Path to the kernel bz image on the boot partition
     #[serde(rename = "kernel")]
     pub kernel_file_path: PathBuf,

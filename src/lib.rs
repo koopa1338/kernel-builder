@@ -205,6 +205,7 @@ impl KernelBuilder {
                 initramfs_file_path.to_string_lossy().as_ref(),
             ])
             .stdout(Stdio::piped())
+            .stderr(Stdio::null())
             .spawn()
             .map_err(|err| BuilderErr::KernelBuildFail(err))?;
 

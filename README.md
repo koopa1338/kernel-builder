@@ -29,7 +29,7 @@ You also need a `config.toml` with the needed paths configured in `$HOME/.config
 kernel = "/boot/vmlinuz-linux"
 initramfs = "/boot/initramfs-linux" # Optional, only needed if `dracut` feature is enabled
 kernel-config = "/usr/src/.config"
-kernel-src
+kernel-src = "/usr/src"
 ```
 
 ## Usage

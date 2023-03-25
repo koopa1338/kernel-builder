@@ -1,41 +1,54 @@
-# Gentoo Kernel Builder
+# Kernel Builder
 
-The Gentoo Kernel Builder is a application written in rust that scans for
-available kernel sources on your gentoo system and allows you to select which
-kernel to build, as well as install the modules, copy the compiled kernel to
-the boot partition, as well as generating the necessary initramfs.
+The Kernel Builder is a application written in rust that scans for available
+kernel sources in a configured directory and allows you to select which kernel
+to build, as well as install the modules, copy the compiled kernel to the boot
+partition, as well as generating the necessary initramfs.
 
 ## Prerequisites
 
-- A working installation of Gentoo Linux
 - Basic knowledge of kernel configuration and compilation
+- to use the initramfs generation you have to enable the `dracut` feature and
+  dracut has to be installed on your system
 
 ## Installation
 
 ```sh
-git clone https://github.com/koopa1338/gentoo-kernel-builder
-cd gentoo-kernel-builder
+git clone https://github.com/koopa1338/kernel-builder
+cd kernel-builder
 cargo install --path .
 ```
 
-You also need a `config.toml` with the needed paths configured in `$HOME/.config/gkb/config.toml`:
+or install it with cargo install from crates.io
+```sh
+cargo install kernel-builder
+```
+
+You also need a `config.toml` with the needed paths configured in `$HOME/.config/kb/config.toml`:
 ```toml
-kernel = "/boot/vmlinuz-linux-gentoo"
-initramfs = "/boot/initramfs-linux-gentoo"
+kernel = "/boot/vmlinuz-linux"
+initramfs = "/boot/initramfs-linux" # Optional, only needed if `dracut` feature is enabled
 kernel-config = "/usr/src/.config"
+kernel-src
 ```
 
 ## Usage
 
-If correctly setup you should just run `gentoo-kernel-builder`, it should ask
+If correctly setup you should just run `kernel-builder`, it should ask
 for root permission if not alread run as root. You can override options by
-setting environment variables prefixed with `GKB_`. For example to override the
+setting environment variables prefixed with `KB_`. For example to override the
 kernel path:
 
 ```sh
-GKB_KERNEL=/boot/efi/vmlinuz-linux-gentoo gentoo-kernel-builder
+KB_KERNEL=/boot/efi/vmlinuz-linux-lts kernel-builder
 ```
 
+## TODO
+
+- [ ] support command line options to skip prompts
+- [ ] support bootloader update (e.g. `update-grub`)
+- [ ] support `genkernel` as beside `dracut` for initramfs
+ 
 ## Contributing
 
 There is still room for improvements, so if you would like to contribute to the

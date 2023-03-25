@@ -22,10 +22,13 @@ pub struct GKBConfig {
     pub kernel_file_path: PathBuf,
     /// Path to the initramfs on the boot partition
     #[serde(rename = "initramfs")]
-    pub initramfs_file_path: PathBuf,
+    pub initramfs_file_path: Option<PathBuf>,
     /// path to the `.config` file that will be symlinked
     #[serde(rename = "kernel-config")]
     pub kernel_config_file_path: PathBuf,
+    /// path to the kernel sources
+    #[serde(rename = "kernel-src")]
+    pub kernel_src: PathBuf,
 }
 
 #[derive(Clone, Debug)]
@@ -56,22 +59,24 @@ impl KernelBuilder {
 
     fn get_available_version(&mut self) {
         if self.versions.is_empty() {
-            if let Ok(directories) = std::fs::read_dir(Self::LINUX_PATH) {
+            if let Ok(directories) = std::fs::read_dir(&self.config.kernel_src) {
                 self.versions = directories
                     .filter_map(Result::ok)
                     .map(|dir| dir.path())
-                    .filter(|path| path.starts_with(Self::LINUX_PATH) && !path.is_symlink())
+                    .filter(|path| path.starts_with(&self.config.kernel_src) && !path.is_symlink())
                     .filter_map(|path| {
-                        path.strip_prefix(Self::LINUX_PATH).ok().and_then(|p| {
-                            let tmp = p.to_owned();
-                            let version_string = tmp.to_string_lossy();
-                            (version_string.starts_with("linux")
-                                && version_string.ends_with("gentoo"))
-                            .then_some(VersionEntry {
-                                path: path.clone(),
-                                version_string: version_string.to_string(),
+                        path.strip_prefix(&self.config.kernel_src)
+                            .ok()
+                            .and_then(|p| {
+                                let tmp = p.to_owned();
+                                let version_string = tmp.to_string_lossy();
+                                version_string
+                                    .starts_with("linux-")
+                                    .then_some(VersionEntry {
+                                        path: path.clone(),
+                                        version_string: version_string.to_string(),
+                                    })
                             })
-                        })
                     })
                     .collect::<Vec<_>>();
             }
@@ -96,7 +101,7 @@ impl KernelBuilder {
             unix::fs::symlink(dot_config, link).map_err(|err| BuilderErr::LinkingFileError(err))?;
         }
 
-        let linux = PathBuf::from(Self::LINUX_PATH).join("linux");
+        let linux = PathBuf::from(&self.config.kernel_src).join("linux");
         let linux_target = linux
             .read_link()
             .map_err(|err| BuilderErr::LinkingFileError(err))?;
@@ -112,6 +117,7 @@ impl KernelBuilder {
             self.install_kernel_modules(path)?;
         }
 
+        #[cfg(feature = "dracut")]
         if self.confirm_prompt("Do you want to generate initramfs with dracut?")? {
             self.generate_initramfs(&version_entry)?;
         }
@@ -175,6 +181,7 @@ impl KernelBuilder {
         Ok(())
     }
 
+    #[cfg(feature = "dracut")]
     fn generate_initramfs(
         &self,
         VersionEntry {
@@ -184,18 +191,22 @@ impl KernelBuilder {
     ) -> Result<(), BuilderErr> {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
-        let mut cmd = Command::new("dracut")
-            .current_dir(path)
-            .args([
-                "--hostonly",
-                "--kver",
-                version_string.strip_prefix("linux-").unwrap(),
-                "--force",
-                self.config.initramfs_file_path.to_string_lossy().as_ref(),
-            ])
-            .stdout(Stdio::piped())
-            .spawn()
-            .map_err(|err| BuilderErr::KernelBuildFail(err))?;
+        let mut cmd = if let Some(initramfs_file_path) = &self.config.initramfs_file_path {
+            Command::new("dracut")
+                .current_dir(path)
+                .args([
+                    "--hostonly",
+                    "--kver",
+                    version_string.strip_prefix("linux-").unwrap(),
+                    "--force",
+                    self.config.initramfs_file_path.to_string_lossy().as_ref(),
+                ])
+                .stdout(Stdio::piped())
+                .spawn()
+                .map_err(|err| BuilderErr::KernelBuildFail(err))?;
+        } else {
+            Err(BuilderErr::ConfigError)
+        };
 
         {
             let stdout = cmd.stdout.as_mut().unwrap();

@@ -1,6 +1,6 @@
 [package]
-name = "gentoo-kernel-builder"
-version = "0.1.2"
+name = "kernel-builder"
+version = "0.1.3"
 edition = "2021"
 authors = ["koopa1338 <sinner1991@gmail.com"]
 license-file = "LICENSE.md"
@@ -12,4 +12,7 @@ dialoguer = "0.10"
 indicatif = "0.17"
 serde = { version = "1.0", features = ["derive"] }
 sudo = "0.6"
-thiserror = "1.0.40"
+thiserror = "1.0"
+
+[features]
+dracut = []

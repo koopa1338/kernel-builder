@@ -39,7 +39,7 @@ struct VersionEntry {
 
 #[derive(Debug)]
 pub struct KernelBuilder {
-    config: GKBConfig,
+    config: KBConfig,
     versions: Vec<VersionEntry>,
 }
 
@@ -47,7 +47,7 @@ impl KernelBuilder {
     pub const LINUX_PATH: &str = "/usr/src";
 
     #[must_use]
-    pub fn new(config: GKBConfig) -> Self {
+    pub fn new(config: KBConfig) -> Self {
         let mut builder = Self {
             config,
             versions: vec![],
@@ -191,22 +191,22 @@ impl KernelBuilder {
     ) -> Result<(), BuilderErr> {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
-        let mut cmd = if let Some(initramfs_file_path) = &self.config.initramfs_file_path {
-            Command::new("dracut")
-                .current_dir(path)
-                .args([
-                    "--hostonly",
-                    "--kver",
-                    version_string.strip_prefix("linux-").unwrap(),
-                    "--force",
-                    self.config.initramfs_file_path.to_string_lossy().as_ref(),
-                ])
-                .stdout(Stdio::piped())
-                .spawn()
-                .map_err(|err| BuilderErr::KernelBuildFail(err))?;
-        } else {
-            Err(BuilderErr::ConfigError)
-        };
+        let initramfs_file_path = &self
+            .config
+            .initramfs_file_path.clone()
+            .ok_or(BuilderErr::KernelConfigMissingOption("initramfs".into()))?;
+        let mut cmd = Command::new("dracut")
+            .current_dir(path)
+            .args([
+                "--hostonly",
+                "--kver",
+                version_string.strip_prefix("linux-").unwrap(),
+                "--force",
+                initramfs_file_path.to_string_lossy().as_ref(),
+            ])
+            .stdout(Stdio::piped())
+            .spawn()
+            .map_err(|err| BuilderErr::KernelBuildFail(err))?;
 
         {
             let stdout = cmd.stdout.as_mut().unwrap();

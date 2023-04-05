@@ -4,16 +4,14 @@ use std::path::PathBuf;
 use sudo;
 
 fn main() -> Result<(), BuilderErr> {
-    let settings_path = if let Ok(xdg_env) = std::env::var("XDG_CONFIG_HOME") {
-        let mut xdg = PathBuf::from(xdg_env);
-        xdg.push("kernel-builder/config");
-        xdg
+    let mut settings_path = if let Ok(xdg_env) = std::env::var("XDG_CONFIG_HOME") {
+        PathBuf::from(xdg_env)
     } else {
         let mut home = PathBuf::from(std::env!("HOME"));
-        home.push(".config/kernel-builder/config");
+        home.push(".config");
         home
     };
-
+    settings_path.push("kernel-builder/config");
     let settings = Config::builder()
         .add_source(File::with_name(settings_path.to_string_lossy().as_ref()).required(true))
         .add_source(Environment::with_prefix("KB"))

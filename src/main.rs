@@ -1,15 +1,12 @@
 use config::{Config, Environment, File};
 use kernel_builder::{BuilderErr, KBConfig, KernelBuilder};
 use std::path::PathBuf;
-use sudo;
 
 fn main() -> Result<(), BuilderErr> {
     let mut settings_path = if let Ok(xdg_env) = std::env::var("XDG_CONFIG_HOME") {
         PathBuf::from(xdg_env)
     } else {
-        let mut home = PathBuf::from(std::env!("HOME"));
-        home.push(".config");
-        home
+        PathBuf::from(std::env!("HOME")).join(".config")
     };
     settings_path.push("kernel-builder/config");
     let settings = Config::builder()

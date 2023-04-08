@@ -61,8 +61,7 @@ impl KernelBuilder {
         if self.versions.is_empty() {
             if let Ok(directories) = std::fs::read_dir(&self.config.kernel_src) {
                 self.versions = directories
-                    .filter_map(Result::ok)
-                    .map(|dir| dir.path())
+                    .filter_map(|dir| dir.ok().map(|d| d.path()))
                     .filter(|path| path.starts_with(&self.config.kernel_src) && !path.is_symlink())
                     .filter_map(|path| {
                         path.strip_prefix(&self.config.kernel_src)
@@ -83,6 +82,16 @@ impl KernelBuilder {
         }
     }
 
+    ///
+    /// # Errors
+    ///
+    /// - Error on missing kernel config
+    /// - Failing creating symlinks
+    /// - Failing kernel build
+    ///
+    /// if selected:
+    /// - Failing installing kernel modules
+    /// - Failing generating initramfs
     pub fn build(&self) -> Result<(), BuilderErr> {
         let version_entry = self.prompt_for_kernel_version();
         let VersionEntry {
@@ -98,27 +107,25 @@ impl KernelBuilder {
                 return Err(BuilderErr::KernelConfigMissing);
             }
 
-            unix::fs::symlink(dot_config, link).map_err(|err| BuilderErr::LinkingFileError(err))?;
+            unix::fs::symlink(dot_config, link).map_err(BuilderErr::LinkingFileError)?;
         }
 
         let linux = PathBuf::from(&self.config.kernel_src).join("linux");
-        let linux_target = linux
-            .read_link()
-            .map_err(|err| BuilderErr::LinkingFileError(err))?;
+        let linux_target = linux.read_link().map_err(BuilderErr::LinkingFileError)?;
 
         if linux_target.to_string_lossy() != *version_string {
-            std::fs::remove_file(&linux).map_err(|err| BuilderErr::LinkingFileError(err))?;
-            unix::fs::symlink(path, linux).map_err(|err| BuilderErr::LinkingFileError(err))?;
+            std::fs::remove_file(&linux).map_err(BuilderErr::LinkingFileError)?;
+            unix::fs::symlink(path, linux).map_err(BuilderErr::LinkingFileError)?;
         }
 
         self.build_kernel(path)?;
 
-        if self.confirm_prompt("Do you want to install kernel modules?")? {
-            self.install_kernel_modules(path)?;
+        if Self::confirm_prompt("Do you want to install kernel modules?")? {
+            Self::install_kernel_modules(path)?;
         }
 
         #[cfg(feature = "dracut")]
-        if self.confirm_prompt("Do you want to generate initramfs with dracut?")? {
+        if Self::confirm_prompt("Do you want to generate initramfs with dracut?")? {
             self.generate_initramfs(&version_entry)?;
         }
 
@@ -136,7 +143,7 @@ impl KernelBuilder {
             .args(["-j", &threads.to_string()])
             .stdout(Stdio::piped())
             .spawn()
-            .map_err(|err| BuilderErr::KernelBuildFail(err))?;
+            .map_err(BuilderErr::KernelBuildFail)?;
 
         {
             let stdout = cmd.stdout.as_mut().unwrap();
@@ -146,24 +153,24 @@ impl KernelBuilder {
             for line in stdout_lines {
                 pb.set_message(format!(
                     "Compiling kernel: {}",
-                    line.map_err(|err| BuilderErr::KernelBuildFail(err))?
+                    line.map_err(BuilderErr::KernelBuildFail)?
                 ));
             }
         }
 
-        cmd.wait().map_err(|err| BuilderErr::KernelBuildFail(err))?;
+        cmd.wait().map_err(BuilderErr::KernelBuildFail)?;
 
         pb.finish_with_message("Finished compiling Kernel");
         std::fs::copy(
             path.join("arch/x86/boot/bzImage"),
             self.config.kernel_file_path.clone(),
         )
-        .map_err(|err| BuilderErr::KernelBuildFail(err))?;
+        .map_err(BuilderErr::KernelBuildFail)?;
 
         Ok(())
     }
 
-    fn install_kernel_modules(&self, path: &Path) -> Result<(), BuilderErr> {
+    fn install_kernel_modules(path: &Path) -> Result<(), BuilderErr> {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
         pb.set_message("Install kernel modules");
@@ -173,9 +180,9 @@ impl KernelBuilder {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|err| BuilderErr::KernelBuildFail(err))?
+            .map_err(BuilderErr::KernelBuildFail)?
             .wait()
-            .map_err(|err| BuilderErr::KernelBuildFail(err))?;
+            .map_err(BuilderErr::KernelBuildFail)?;
         pb.finish_with_message("Finished installing modules");
 
         Ok(())
@@ -193,7 +200,8 @@ impl KernelBuilder {
         pb.enable_steady_tick(Duration::from_millis(120));
         let initramfs_file_path = &self
             .config
-            .initramfs_file_path.clone()
+            .initramfs_file_path
+            .clone()
             .ok_or(BuilderErr::KernelConfigMissingOption("initramfs".into()))?;
         let mut cmd = Command::new("dracut")
             .current_dir(path)
@@ -207,7 +215,7 @@ impl KernelBuilder {
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
-            .map_err(|err| BuilderErr::KernelBuildFail(err))?;
+            .map_err(BuilderErr::KernelBuildFail)?;
 
         {
             let stdout = cmd.stdout.as_mut().unwrap();
@@ -217,12 +225,12 @@ impl KernelBuilder {
             for line in stdout_lines {
                 pb.set_message(format!(
                     "Generating initramfs: {}",
-                    line.map_err(|err| BuilderErr::KernelBuildFail(err))?
+                    line.map_err(BuilderErr::KernelBuildFail)?
                 ));
             }
         }
 
-        cmd.wait().map_err(|err| BuilderErr::KernelBuildFail(err))?;
+        cmd.wait().map_err(BuilderErr::KernelBuildFail)?;
         pb.finish_with_message("Finished initramfs");
 
         Ok(())
@@ -245,10 +253,10 @@ impl KernelBuilder {
         self.versions[selection].clone()
     }
 
-    fn confirm_prompt(&self, message: &str) -> Result<bool, BuilderErr> {
+    fn confirm_prompt(message: &str) -> Result<bool, BuilderErr> {
         Confirm::new()
             .with_prompt(message)
             .interact()
-            .map_err(|err| BuilderErr::PromptError(err))
+            .map_err(BuilderErr::PromptError)
     }
 }

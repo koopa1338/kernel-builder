@@ -10,6 +10,7 @@ description = "select kernel version from available sources, build and install"
 config = "0.13"
 dialoguer = "0.10"
 indicatif = "0.17"
+pico-args = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 sudo = "0.6"
 thiserror = "1.0"

@@ -14,6 +14,8 @@ use std::{
 
 mod error;
 pub use error::BuilderErr;
+mod cli;
+pub use cli::SkipArgs;
 
 #[derive(Debug, Deserialize)]
 pub struct KBConfig {
@@ -92,7 +94,7 @@ impl KernelBuilder {
     /// if selected:
     /// - Failing installing kernel modules
     /// - Failing generating initramfs
-    pub fn build(&self) -> Result<(), BuilderErr> {
+    pub fn build(&self, cli: SkipArgs) -> Result<(), BuilderErr> {
         let version_entry = self.prompt_for_kernel_version();
         let VersionEntry {
             path,
@@ -118,17 +120,22 @@ impl KernelBuilder {
             unix::fs::symlink(path, linux).map_err(BuilderErr::LinkingFileError)?;
         }
 
-        self.build_kernel(path)?;
+        if !cli.skip_build {
+            self.build_kernel(path)?;
+        }
 
-        if Self::confirm_prompt("Do you want to install kernel modules?")? {
-            Self::install_kernel_modules(path)?;
+        if !cli.skip_modules {
+            if Self::confirm_prompt("Do you want to install kernel modules?")? {
+                Self::install_kernel_modules(path)?;
+            }
         }
 
         #[cfg(feature = "dracut")]
-        if Self::confirm_prompt("Do you want to generate initramfs with dracut?")? {
-            self.generate_initramfs(&version_entry)?;
+        if !cli.skip_initramfs {
+            if Self::confirm_prompt("Do you want to generate initramfs with dracut?")? {
+                self.generate_initramfs(&version_entry)?;
+            }
         }
-
         Ok(())
     }
 

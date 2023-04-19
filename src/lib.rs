@@ -63,9 +63,9 @@ impl KernelBuilder {
         if self.versions.is_empty() {
             if let Ok(directories) = std::fs::read_dir(&self.config.kernel_src) {
                 self.versions = directories
-                    .filter_map(|dir| dir.ok().map(|d| d.path()))
+                    .flat_map(|dir| dir.ok().map(|d| d.path()))
                     .filter(|path| path.starts_with(&self.config.kernel_src) && !path.is_symlink())
-                    .filter_map(|path| {
+                    .flat_map(|path| {
                         path.strip_prefix(&self.config.kernel_src)
                             .ok()
                             .and_then(|p| {

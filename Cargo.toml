@@ -5,6 +5,7 @@ edition = "2021"
 authors = ["koopa1338 <sinner1991@gmail.com"]
 license-file = "LICENSE.md"
 description = "select kernel version from available sources, build and install"
+repository = "https://github.com/koopa1338/kernel-builder"
 
 [dependencies]
 config = "0.13"

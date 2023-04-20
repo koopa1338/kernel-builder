@@ -1,9 +1,9 @@
 #[derive(Debug)]
 pub struct SkipArgs {
-    pub skip_build: bool,
+    pub no_build: bool,
     #[cfg(feature = "dracut")]
-    pub skip_initramfs: bool,
-    pub skip_modules: bool,
+    pub no_initramfs: bool,
+    pub no_modules: bool,
 }
 
 impl SkipArgs {
@@ -14,9 +14,9 @@ USAGE:
 FLAGS:
   -h, --help            Prints help information
 OPTIONS:
-  --skip-build          skip build
-  --skip-initramfs      skip generating initramfs (only with dracut feature)
-  --skip-modules        skip installing kernel modules
+  --no-build          skip build
+  --no-initramfs      skip generating initramfs (only if compiled with dracut feature)
+  --no-modules        skip installing kernel modules
 "#;
 
     pub fn parse_args() -> Self {
@@ -29,10 +29,10 @@ OPTIONS:
         }
 
         let args = Self {
-            skip_build: pargs.contains("--skip-build"),
+            no_build: pargs.contains("--no-build"),
             #[cfg(feature = "dracut")]
-            skip_initramfs: pargs.contains("--skip-initramfs"),
-            skip_modules: pargs.contains("--skip-modules"),
+            no_initramfs: pargs.contains("--no-initramfs"),
+            no_modules: pargs.contains("--no-modules"),
         };
 
         args

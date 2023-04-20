@@ -120,18 +120,18 @@ impl KernelBuilder {
             unix::fs::symlink(path, linux).map_err(BuilderErr::LinkingFileError)?;
         }
 
-        if !cli.skip_build {
+        if !cli.no_build {
             self.build_kernel(path)?;
         }
 
-        if !cli.skip_modules {
+        if !cli.no_modules {
             if Self::confirm_prompt("Do you want to install kernel modules?")? {
                 Self::install_kernel_modules(path)?;
             }
         }
 
         #[cfg(feature = "dracut")]
-        if !cli.skip_initramfs {
+        if !cli.no_initramfs {
             if Self::confirm_prompt("Do you want to generate initramfs with dracut?")? {
                 self.generate_initramfs(&version_entry)?;
             }

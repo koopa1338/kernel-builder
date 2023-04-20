@@ -1,6 +1,6 @@
 [package]
 name = "kernel-builder"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 authors = ["koopa1338 <sinner1991@gmail.com"]
 license-file = "LICENSE.md"

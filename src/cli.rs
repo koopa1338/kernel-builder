@@ -1,12 +1,13 @@
 #[derive(Debug)]
-pub struct SkipArgs {
+pub struct Args {
     pub no_build: bool,
     #[cfg(feature = "dracut")]
     pub no_initramfs: bool,
     pub no_modules: bool,
+    pub menuconfig: bool,
 }
 
-impl SkipArgs {
+impl Args {
     const HELP: &str = r#"
 Kernel Builder
 USAGE:
@@ -17,8 +18,10 @@ OPTIONS:
   --no-build          skip build
   --no-initramfs      skip generating initramfs (only if compiled with dracut feature)
   --no-modules        skip installing kernel modules
+  --menuconfig        open menuconfig for kernel configuration
 "#;
 
+    #[must_use]
     pub fn parse_args() -> Self {
         let mut pargs = pico_args::Arguments::from_env();
 
@@ -28,13 +31,12 @@ OPTIONS:
             std::process::exit(0);
         }
 
-        let args = Self {
+        Self {
             no_build: pargs.contains("--no-build"),
             #[cfg(feature = "dracut")]
             no_initramfs: pargs.contains("--no-initramfs"),
             no_modules: pargs.contains("--no-modules"),
-        };
-
-        args
+            menuconfig: pargs.contains("--menuconfig"),
+        }
     }
 }

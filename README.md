@@ -50,7 +50,7 @@ KB_KERNEL=/boot/efi/vmlinuz-linux-lts kernel-builder
 - [ ] support `genkernel` as beside `dracut` for initramfs
 - [ ] before copying to boot folder, backup old kernel and ramfs to fallback version
 - [ ] add indicator for current installed kernel version
-- [ ] cli flag for opening make menuconfig
+- [x] cli flag for opening make menuconfig
 
  
 ## Contributing

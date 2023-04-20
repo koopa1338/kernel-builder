@@ -2,7 +2,7 @@ use config::{Config, Environment, File};
 use kernel_builder::{BuilderErr, KBConfig, KernelBuilder};
 use std::path::PathBuf;
 
-use kernel_builder::SkipArgs;
+use kernel_builder::Args;
 
 fn main() -> Result<(), BuilderErr> {
     let mut settings_path = if let Ok(xdg_env) = std::env::var("XDG_CONFIG_HOME") {
@@ -20,8 +20,8 @@ fn main() -> Result<(), BuilderErr> {
     let kernel_builder = KernelBuilder::new(config);
 
     sudo::escalate_if_needed().map_err(|_| BuilderErr::NoPrivileges)?;
-    let cli_args = SkipArgs::parse_args();
-    kernel_builder.build(cli_args)?;
+    let cli_args = Args::parse_args();
+    kernel_builder.build(&cli_args)?;
 
     Ok(())
 }

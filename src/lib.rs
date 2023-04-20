@@ -15,7 +15,7 @@ use std::{
 mod error;
 pub use error::BuilderErr;
 mod cli;
-pub use cli::SkipArgs;
+pub use cli::Args;
 
 #[derive(Debug, Deserialize)]
 pub struct KBConfig {
@@ -94,7 +94,7 @@ impl KernelBuilder {
     /// if selected:
     /// - Failing installing kernel modules
     /// - Failing generating initramfs
-    pub fn build(&self, cli: SkipArgs) -> Result<(), BuilderErr> {
+    pub fn build(&self, cli: &Args) -> Result<(), BuilderErr> {
         let version_entry = self.prompt_for_kernel_version();
         let VersionEntry {
             path,
@@ -120,21 +120,23 @@ impl KernelBuilder {
             unix::fs::symlink(path, linux).map_err(BuilderErr::LinkingFileError)?;
         }
 
+        if cli.menuconfig {
+            Self::make_menuconfig(path)?;
+        }
+
         if !cli.no_build {
             self.build_kernel(path)?;
         }
 
-        if !cli.no_modules {
-            if Self::confirm_prompt("Do you want to install kernel modules?")? {
-                Self::install_kernel_modules(path)?;
-            }
+        if !cli.no_modules && Self::confirm_prompt("Do you want to install kernel modules?")? {
+            Self::install_kernel_modules(path)?;
         }
 
         #[cfg(feature = "dracut")]
-        if !cli.no_initramfs {
-            if Self::confirm_prompt("Do you want to generate initramfs with dracut?")? {
-                self.generate_initramfs(&version_entry)?;
-            }
+        if !cli.no_initramfs
+            && Self::confirm_prompt("Do you want to generate initramfs with dracut?")?
+        {
+            self.generate_initramfs(&version_entry)?;
         }
         Ok(())
     }
@@ -173,6 +175,18 @@ impl KernelBuilder {
             self.config.kernel_file_path.clone(),
         )
         .map_err(BuilderErr::KernelBuildFail)?;
+
+        Ok(())
+    }
+
+    fn make_menuconfig(path: &Path) -> Result<(), BuilderErr> {
+        let mut cmd = Command::new("make")
+            .current_dir(path)
+            .arg("menuconfig")
+            .spawn()
+            .map_err(|_| BuilderErr::MenuconfigError)?;
+
+        cmd.wait().map_err(|_| BuilderErr::MenuconfigError)?;
 
         Ok(())
     }

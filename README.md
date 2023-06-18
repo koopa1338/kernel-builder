@@ -24,7 +24,7 @@ or install it with cargo install from crates.io
 cargo install kernel-builder
 ```
 
-You also need a `config.toml` with the needed paths configured in `$HOME/.config/kb/config.toml`:
+You also need a `config.toml` with the needed paths configured in `$HOME/.config/kernel-builder/config.toml`:
 ```toml
 kernel = "/boot/vmlinuz-linux"
 initramfs = "/boot/initramfs-linux" # Optional, only needed if `dracut` feature is enabled

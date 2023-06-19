@@ -263,6 +263,7 @@ impl KernelBuilder {
             .clone()
             .into_iter()
             .map(|v| v.version_string)
+            .rev() // display the newest version at the top
             .collect::<Vec<_>>();
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Pick version to build and install")

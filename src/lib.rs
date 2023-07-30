@@ -263,20 +263,16 @@ impl KernelBuilder {
             .clone()
             .into_iter()
             .map(|v| v.version_string)
-            .rev() // display the newest version at the top
             .collect::<Vec<_>>();
         let selection = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Pick version to build and install")
             .items(versions.as_slice())
-            .default(0)
+            .default(versions.len().checked_sub(1).unwrap_or(0)) // select the last entry
             .interact_on_opt(&Term::stderr())
             .unwrap()
             .unwrap();
-        // we display the versions in reverse so the index has to be calculated...
-        let index = (self.versions.len() - selection)
-            .checked_sub(1)
-            .unwrap_or(0);
-        self.versions[index].clone()
+
+        self.versions[selection].clone()
     }
 
     fn confirm_prompt(message: &str) -> Result<bool, BuilderErr> {

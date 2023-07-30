@@ -272,7 +272,11 @@ impl KernelBuilder {
             .interact_on_opt(&Term::stderr())
             .unwrap()
             .unwrap();
-        self.versions[selection].clone()
+        // we display the versions in reverse so the index has to be calculated...
+        let index = (self.versions.len() - selection)
+            .checked_sub(1)
+            .unwrap_or(0);
+        self.versions[index].clone()
     }
 
     fn confirm_prompt(message: &str) -> Result<bool, BuilderErr> {

@@ -163,7 +163,7 @@ impl KernelBuilder {
 
             for line in stdout_lines {
                 let line = line.map_err(BuilderErr::KernelBuildFail)?;
-                if line.to_ascii_lowercase().contains("[y/n]") {
+                if line.to_ascii_lowercase().contains("[y/n") && !line.ends_with("y") {
                     let answer = if Self::confirm_prompt(&line)? {
                         b"y\n"
                     } else {

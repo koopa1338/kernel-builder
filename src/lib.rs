@@ -3,7 +3,7 @@ use dialoguer::Select;
 use dialoguer::{console::Term, Confirm};
 use indicatif::ProgressBar;
 use serde::Deserialize;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::num::NonZeroUsize;
 use std::{
     os::unix,
@@ -151,6 +151,7 @@ impl KernelBuilder {
             .current_dir(path)
             .args(["-j", &threads.to_string()])
             .stdout(Stdio::piped())
+            .stdin(Stdio::piped())
             .spawn()
             .map_err(BuilderErr::KernelBuildFail)?;
 
@@ -158,12 +159,21 @@ impl KernelBuilder {
             let stdout = cmd.stdout.as_mut().unwrap();
             let stdout_reader = BufReader::new(stdout);
             let stdout_lines = stdout_reader.lines();
+            let stdin = cmd.stdin.as_mut().unwrap();
 
             for line in stdout_lines {
-                pb.set_message(format!(
-                    "Compiling kernel: {}",
-                    line.map_err(BuilderErr::KernelBuildFail)?
-                ));
+                let line = line.map_err(BuilderErr::KernelBuildFail)?;
+                if line.to_ascii_lowercase().contains("[y/n]") {
+                    let answer = if Self::confirm_prompt(&line)? {
+                        b"y\n"
+                    } else {
+                        b"n\n"
+                    };
+                    stdin
+                        .write_all(answer)
+                        .map_err(BuilderErr::KernelBuildFail)?;
+                }
+                pb.set_message(format!("Compiling kernel: {line}"));
             }
         }
 

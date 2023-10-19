@@ -8,6 +8,7 @@ pub struct Args {
 }
 
 impl Args {
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
     const HELP: &str = r#"
 Kernel Builder
 USAGE:
@@ -33,10 +34,7 @@ OPTIONS:
         }
 
         if pargs.contains(["-v", "--version"]) {
-            println!(
-                "kernel-builder v{}",
-                std::env::var("CARGO_PKG_VERSION").expect("missing package version")
-            );
+            println!("kernel-builder v{}", Self::VERSION);
             std::process::exit(0);
         }
 

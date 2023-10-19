@@ -14,6 +14,7 @@ USAGE:
   kernel-builder [OPTIONS]
 FLAGS:
   -h, --help            Prints help information
+  -v, --version         Print version
 OPTIONS:
   --no-build          skip build
   --no-initramfs      skip generating initramfs (only if compiled with dracut feature)
@@ -28,6 +29,14 @@ OPTIONS:
         // Help has a higher priority and should be handled separately.
         if pargs.contains(["-h", "--help"]) {
             print!("{}", Self::HELP);
+            std::process::exit(0);
+        }
+
+        if pargs.contains(["-v", "--version"]) {
+            println!(
+                "kernel-builder v{}",
+                std::env::var("CARGO_PKG_VERSION").expect("missing package version")
+            );
             std::process::exit(0);
         }
 

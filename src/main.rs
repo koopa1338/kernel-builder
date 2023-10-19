@@ -19,8 +19,8 @@ fn main() -> Result<(), BuilderErr> {
     let config = settings.try_deserialize::<KBConfig>()?;
     let kernel_builder = KernelBuilder::new(config);
 
-    sudo::escalate_if_needed().map_err(|_| BuilderErr::NoPrivileges)?;
     let cli_args = Args::parse_args();
+    sudo::escalate_if_needed().map_err(|_| BuilderErr::NoPrivileges)?;
     kernel_builder.build(&cli_args)?;
 
     Ok(())

@@ -95,7 +95,12 @@ impl KernelBuilder {
     /// - Failing installing kernel modules
     /// - Failing generating initramfs
     pub fn build(&self, cli: &Args) -> Result<(), BuilderErr> {
-        let version_entry = self.prompt_for_kernel_version();
+        let version_entry = if let Some(version_entry) = self.prompt_for_kernel_version() {
+            version_entry
+        } else {
+            return Ok(());
+        };
+
         let VersionEntry {
             path,
             version_string,
@@ -121,18 +126,18 @@ impl KernelBuilder {
         }
 
         if cli.menuconfig {
-            Self::make_menuconfig(path)?;
+            Self::make_menuconfig(&path)?;
             if !Self::confirm_prompt("Continue build process?")? {
                 return Ok(());
             }
         }
 
         if !cli.no_build {
-            self.build_kernel(path)?;
+            self.build_kernel(&path)?;
         }
 
         if !cli.no_modules && Self::confirm_prompt("Do you want to install kernel modules?")? {
-            Self::install_kernel_modules(path)?;
+            Self::install_kernel_modules(&path)?;
         }
 
         #[cfg(feature = "dracut")]
@@ -260,22 +265,22 @@ impl KernelBuilder {
         Ok(())
     }
 
-    fn prompt_for_kernel_version(&self) -> VersionEntry {
+    fn prompt_for_kernel_version(&self) -> Option<VersionEntry> {
         let versions = self
             .versions
             .clone()
             .into_iter()
             .map(|v| v.version_string)
             .collect::<Vec<_>>();
-        let selection = Select::with_theme(&ColorfulTheme::default())
+
+        Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Pick version to build and install")
             .items(versions.as_slice())
             .default(versions.len().checked_sub(1).unwrap_or(0)) // select the last entry
             .interact_on_opt(&Term::stderr())
-            .unwrap()
-            .unwrap();
-
-        self.versions[selection].clone()
+            .ok()
+            .flatten()
+            .map(|selection| self.versions[selection].clone())
     }
 
     fn confirm_prompt(message: &str) -> Result<bool, BuilderErr> {

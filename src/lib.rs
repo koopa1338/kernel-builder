@@ -122,6 +122,9 @@ impl KernelBuilder {
 
         if cli.menuconfig {
             Self::make_menuconfig(path)?;
+            if !Self::confirm_prompt("Continue build process?")? {
+                return Ok(());
+            }
         }
 
         if !cli.no_build {

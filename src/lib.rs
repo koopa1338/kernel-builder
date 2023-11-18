@@ -126,18 +126,18 @@ impl KernelBuilder {
         }
 
         if cli.menuconfig {
-            Self::make_menuconfig(&path)?;
+            Self::make_menuconfig(path)?;
             if !Self::confirm_prompt("Continue build process?")? {
                 return Ok(());
             }
         }
 
         if !cli.no_build {
-            self.build_kernel(&path)?;
+            self.build_kernel(path)?;
         }
 
         if !cli.no_modules && Self::confirm_prompt("Do you want to install kernel modules?")? {
-            Self::install_kernel_modules(&path)?;
+            Self::install_kernel_modules(path)?;
         }
 
         #[cfg(feature = "dracut")]
@@ -276,7 +276,7 @@ impl KernelBuilder {
         Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Pick version to build and install")
             .items(versions.as_slice())
-            .default(versions.len().checked_sub(1).unwrap_or(0)) // select the last entry
+            .default(versions.len().saturating_sub(1)) // select the last entry
             .interact_on_opt(&Term::stderr())
             .ok()
             .flatten()

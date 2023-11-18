@@ -8,8 +8,8 @@ pub struct Args {
 }
 
 impl Args {
-    const VERSION: &str = env!("CARGO_PKG_VERSION");
-    const HELP: &str = r#"
+    const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+    const HELP: &'static str = r#"
 Kernel Builder
 USAGE:
   kernel-builder [OPTIONS]

@@ -46,7 +46,7 @@ pub struct KernelBuilder {
 }
 
 impl KernelBuilder {
-    pub const LINUX_PATH: &str = "/usr/src";
+    pub const LINUX_PATH: &'static str = "/usr/src";
 
     #[must_use]
     pub fn new(config: KBConfig) -> Self {

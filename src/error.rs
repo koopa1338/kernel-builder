@@ -16,7 +16,7 @@ pub enum BuilderErr {
     #[error("Could not parse config file: {0}")]
     ConfigError(#[from] ConfigError),
     #[error("Could not create prompt: {0}")]
-    PromptError(std::io::Error),
+    PromptError(dialoguer::Error),
     #[error("Error while starting `menuconfig`")]
     MenuconfigError,
 }

@@ -31,6 +31,10 @@ pub struct KBConfig {
     /// path to the kernel sources
     #[serde(rename = "kernel-src")]
     pub kernel_src: PathBuf,
+    #[serde(rename = "keep-last-kernel")]
+    pub keep_last_kernel: bool,
+    #[serde(rename = "last-kernel-suffix")]
+    pub last_kernel_suffix: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -178,6 +182,27 @@ impl KernelBuilder {
         cmd.wait().map_err(BuilderErr::KernelBuildFail)?;
 
         pb.finish_with_message("Finished compiling Kernel");
+
+        if self.config.keep_last_kernel {
+            let path = self.config.kernel_file_path.clone();
+            let mut filename = path
+                .file_name()
+                .map(|p| p.to_string_lossy().to_string())
+                .expect("could not get filename of kernel file path");
+            let suff = format!(
+                "-{}",
+                self.config
+                    .last_kernel_suffix
+                    .clone()
+                    .unwrap_or(String::from("prev"))
+            );
+            filename.push_str(&suff);
+            let path = path.with_file_name(filename);
+
+            std::fs::copy(self.config.kernel_file_path.clone(), path)
+                .map_err(BuilderErr::KernelBuildFail)?;
+        }
+
         std::fs::copy(
             path.join("arch/x86/boot/bzImage"),
             self.config.kernel_file_path.clone(),
@@ -225,13 +250,32 @@ impl KernelBuilder {
             version_string,
         }: &VersionEntry,
     ) -> Result<(), BuilderErr> {
-        let pb = ProgressBar::new_spinner();
-        pb.enable_steady_tick(Duration::from_millis(120));
         let initramfs_file_path = &self
             .config
             .initramfs_file_path
             .clone()
             .ok_or(BuilderErr::KernelConfigMissingOption("initramfs".into()))?;
+
+        if self.config.keep_last_kernel {
+            let mut filename = initramfs_file_path
+                .file_stem()
+                .map(|p| p.to_string_lossy().to_string())
+                .expect("could not get filename of initramfs file path");
+            let suff = format!(
+                "-{}.img",
+                self.config
+                    .last_kernel_suffix
+                    .clone()
+                    .unwrap_or(String::from("prev"))
+            );
+            filename.push_str(&suff);
+            let path = initramfs_file_path.with_file_name(filename);
+
+            std::fs::copy(initramfs_file_path, path).map_err(BuilderErr::KernelBuildFail)?;
+        }
+
+        let pb = ProgressBar::new_spinner();
+        pb.enable_steady_tick(Duration::from_millis(120));
         let mut cmd = Command::new("dracut")
             .current_dir(path)
             .args([

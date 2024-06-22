@@ -5,6 +5,7 @@ pub struct Args {
     pub no_initramfs: bool,
     pub no_modules: bool,
     pub menuconfig: bool,
+    pub replace: bool,
 }
 
 impl Args {
@@ -21,6 +22,7 @@ OPTIONS:
   --no-initramfs      skip generating initramfs (only if compiled with dracut feature)
   --no-modules        skip installing kernel modules
   --menuconfig        open menuconfig for kernel configuration
+  --replace           replace the current installed kerne (useful if you have configured to keep the last kernel)
 "#;
 
     #[must_use]
@@ -44,6 +46,7 @@ OPTIONS:
             no_initramfs: pargs.contains("--no-initramfs"),
             no_modules: pargs.contains("--no-modules"),
             menuconfig: pargs.contains("--menuconfig"),
+            replace: pargs.contains("--replace"),
         }
     }
 }

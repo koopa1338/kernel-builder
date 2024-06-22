@@ -137,7 +137,7 @@ impl KernelBuilder {
         }
 
         if !cli.no_build {
-            self.build_kernel(path)?;
+            self.build_kernel(path, cli.replace)?;
         }
 
         if !cli.no_modules && Self::confirm_prompt("Do you want to install kernel modules?")? {
@@ -153,7 +153,7 @@ impl KernelBuilder {
         Ok(())
     }
 
-    fn build_kernel(&self, path: &Path) -> Result<(), BuilderErr> {
+    fn build_kernel(&self, path: &Path, replace: bool) -> Result<(), BuilderErr> {
         let threads: NonZeroUsize =
             std::thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
         let pb = ProgressBar::new_spinner();
@@ -193,7 +193,7 @@ impl KernelBuilder {
 
         pb.finish_with_message("Finished compiling Kernel");
 
-        if self.config.keep_last_kernel {
+        if self.config.keep_last_kernel && !replace {
             let path = self.config.kernel_file_path.clone();
             let mut filename = path
                 .file_name()

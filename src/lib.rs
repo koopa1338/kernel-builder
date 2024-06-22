@@ -154,11 +154,27 @@ impl KernelBuilder {
     }
 
     fn build_kernel(&self, path: &Path, replace: bool) -> Result<(), BuilderErr> {
+        let make_oldconfig = Command::new("make")
+            .arg("oldconfig")
+            .current_dir(path)
+            .stdin(Stdio::inherit()) // Allow interaction with the terminal for input
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(BuilderErr::KernelBuildFail)?;
+
+        if let Some(stderr) = make_oldconfig.stderr {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let line = line.expect("Failed to read error line");
+                eprintln!("{}", line);
+            }
+        }
+
         let threads: NonZeroUsize =
             std::thread::available_parallelism().unwrap_or(NonZeroUsize::new(1).unwrap());
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(120));
-
         let mut cmd = Command::new("make")
             .current_dir(path)
             .args(["-j", &threads.to_string()])
@@ -171,20 +187,11 @@ impl KernelBuilder {
             let stdout = cmd.stdout.as_mut().unwrap();
             let stdout_reader = BufReader::new(stdout);
             let stdout_lines = stdout_reader.lines();
-            let stdin = cmd.stdin.as_mut().unwrap();
 
             for line in stdout_lines {
-                let line = line.map_err(BuilderErr::KernelBuildFail)?;
-                if line.to_ascii_lowercase().contains("[y/n") && !line.ends_with("y") {
-                    let answer = if Self::confirm_prompt(&line)? {
-                        b"y\n"
-                    } else {
-                        b"n\n"
-                    };
-                    stdin
-                        .write_all(answer)
-                        .map_err(BuilderErr::KernelBuildFail)?;
-                }
+                let line = line
+                    .map_err(BuilderErr::KernelBuildFail)?
+                    .to_ascii_lowercase();
                 pb.set_message(format!("Compiling kernel: {line}"));
             }
         }

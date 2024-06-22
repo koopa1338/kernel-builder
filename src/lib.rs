@@ -148,7 +148,7 @@ impl KernelBuilder {
         if !cli.no_initramfs
             && Self::confirm_prompt("Do you want to generate initramfs with dracut?")?
         {
-            self.generate_initramfs(&version_entry)?;
+            self.generate_initramfs(&version_entry, cli.replace)?;
         }
         Ok(())
     }
@@ -266,6 +266,7 @@ impl KernelBuilder {
             path,
             version_string,
         }: &VersionEntry,
+        replace: bool,
     ) -> Result<(), BuilderErr> {
         let initramfs_file_path = &self
             .config
@@ -273,7 +274,7 @@ impl KernelBuilder {
             .clone()
             .ok_or(BuilderErr::KernelConfigMissingOption("initramfs".into()))?;
 
-        if self.config.keep_last_kernel {
+        if self.config.keep_last_kernel && !replace {
             let mut filename = initramfs_file_path
                 .file_stem()
                 .map(|p| p.to_string_lossy().to_string())

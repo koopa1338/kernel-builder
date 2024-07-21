@@ -3,7 +3,7 @@ use dialoguer::Select;
 use dialoguer::{console::Term, Confirm};
 use indicatif::ProgressBar;
 use serde::Deserialize;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::num::NonZeroUsize;
 use std::{
     os::unix,
@@ -99,9 +99,7 @@ impl KernelBuilder {
     /// - Failing installing kernel modules
     /// - Failing generating initramfs
     pub fn build(&self, cli: &Args) -> Result<(), BuilderErr> {
-        let version_entry = if let Some(version_entry) = self.prompt_for_kernel_version() {
-            version_entry
-        } else {
+        let Some(version_entry) = self.prompt_for_kernel_version() else {
             return Ok(());
         };
 
@@ -167,7 +165,7 @@ impl KernelBuilder {
             let reader = BufReader::new(stderr);
             for line in reader.lines() {
                 let line = line.expect("Failed to read error line");
-                eprintln!("{}", line);
+                eprintln!("{line}");
             }
         }
 

@@ -10,7 +10,7 @@ pub struct Args {
 
 impl Args {
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-    const HELP: &'static str = r#"
+    const HELP: &'static str = r"
 Kernel Builder
 USAGE:
   kernel-builder [OPTIONS]
@@ -23,7 +23,7 @@ OPTIONS:
   --no-modules        skip installing kernel modules
   --menuconfig        open menuconfig for kernel configuration
   --replace           replace the current installed kerne (useful if you have configured to keep the last kernel)
-"#;
+";
 
     #[must_use]
     pub fn parse_args() -> Self {

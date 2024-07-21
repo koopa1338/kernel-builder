@@ -48,7 +48,7 @@ KB_KERNEL=/boot/efi/vmlinuz-linux-lts kernel-builder
 - [x] support command line options to skip prompts
 - [ ] support bootloader update (e.g. `update-grub`)
 - [ ] support `genkernel` as beside `dracut` for initramfs
-- [ ] before copying to boot folder, backup old kernel and ramfs to fallback version
+- [x] before copying to boot folder, backup old kernel and ramfs to fallback version
 - [ ] add indicator for current installed kernel version
 - [x] cli flag for opening make menuconfig
 

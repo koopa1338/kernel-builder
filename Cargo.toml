@@ -8,7 +8,7 @@ description = "select kernel version from available sources, build and install"
 repository = "https://github.com/koopa1338/kernel-builder"
 
 [dependencies]
-config = "0.13"
+config = "0.14"
 dialoguer = "0.11"
 indicatif = "0.17"
 pico-args = "0.5"

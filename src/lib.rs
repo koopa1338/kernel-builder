@@ -152,20 +152,28 @@ impl KernelBuilder {
     }
 
     fn build_kernel(&self, path: &Path, replace: bool) -> Result<(), BuilderErr> {
-        let make_oldconfig = Command::new("make")
-            .arg("oldconfig")
+        let new_flags = Command::new("make")
+            .arg("listnewconfigs")
             .current_dir(path)
-            .stdin(Stdio::inherit()) // Allow interaction with the terminal for input
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+            .output()
             .map_err(BuilderErr::KernelBuildFail)?;
 
-        if let Some(stderr) = make_oldconfig.stderr {
-            let reader = BufReader::new(stderr);
-            for line in reader.lines() {
-                let line = line.expect("Failed to read error line");
-                eprintln!("{line}");
+        if !new_flags.stdout.is_empty() {
+            let make_oldconfig = Command::new("make")
+                .arg("oldconfig")
+                .current_dir(path)
+                .stdin(Stdio::inherit()) // Allow interaction with the terminal for input
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(BuilderErr::KernelBuildFail)?;
+
+            if let Some(stderr) = make_oldconfig.stderr {
+                let reader = BufReader::new(stderr);
+                for line in reader.lines() {
+                    let line = line.expect("Failed to read error line");
+                    eprintln!("{line}");
+                }
             }
         }
 

@@ -159,22 +159,40 @@ impl KernelBuilder {
             .map_err(BuilderErr::KernelBuildFail)?;
 
         if !new_flags.stdout.is_empty() {
-            let make_oldconfig = Command::new("make")
-                .arg("oldconfig")
+            // TODO: use `oldconfig` and get an interactive shell to pipe choices to the user
+            let mut make_oldconfig = Command::new("make")
+                .arg("olddefconfig")
                 .current_dir(path)
-                .stdin(Stdio::inherit()) // Allow interaction with the terminal for input
-                .stdout(Stdio::inherit())
-                .stderr(Stdio::piped())
+                // .stdin(Stdio::piped()) // Allow interaction with the terminal for input
+                // .stdout(Stdio::piped())
+                // .stderr(Stdio::piped())
                 .spawn()
                 .map_err(BuilderErr::KernelBuildFail)?;
 
-            if let Some(stderr) = make_oldconfig.stderr {
-                let reader = BufReader::new(stderr);
-                for line in reader.lines() {
-                    let line = line.expect("Failed to read error line");
-                    eprintln!("{line}");
-                }
+            let exit_code = make_oldconfig.wait().map_err(BuilderErr::KernelBuildFail)?;
+            if !exit_code.success() {
+                return Err(BuilderErr::KernelConfigUpdateError);
             }
+
+            // backup old conf
+            let mut oldconf = self.config.kernel_config_file_path.clone();
+            oldconf.pop();
+            oldconf.push(".config.old");
+            std::fs::copy(self.config.kernel_config_file_path.clone(), oldconf)
+                .map_err(BuilderErr::KernelBuildFail)?;
+
+            // update to new config
+            std::fs::copy(
+                path.join(".config"),
+                self.config.kernel_config_file_path.clone(),
+            )
+            .map_err(BuilderErr::KernelBuildFail)?;
+
+            // fixing symlinks so that later menuconfigs will edit the right config file
+            std::fs::remove_file(path.join(".config.old")).map_err(BuilderErr::LinkingFileError)?;
+            std::fs::remove_file(path.join(".config")).map_err(BuilderErr::LinkingFileError)?;
+            unix::fs::symlink(&self.config.kernel_config_file_path, path.join(".config"))
+                .map_err(BuilderErr::LinkingFileError)?;
         }
 
         let threads: NonZeroUsize =

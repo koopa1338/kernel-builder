@@ -9,6 +9,8 @@ pub enum BuilderErr {
     KernelConfigMissing,
     #[error("Missing option in kernel configuration file: {0}")]
     KernelConfigMissingOption(String),
+    #[error("Error running config update")]
+    KernelConfigUpdateError,
     #[error("Error building kernel: {0}")]
     KernelBuildFail(std::io::Error),
     #[error("Symlinking file failed: {0}")]

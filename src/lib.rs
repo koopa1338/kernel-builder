@@ -158,7 +158,10 @@ impl KernelBuilder {
             .output()
             .map_err(BuilderErr::KernelBuildFail)?;
 
-        if !new_flags.stdout.is_empty() {
+        if !new_flags.stdout
+            .trim_ascii()
+            .is_empty()
+        {
             // TODO: use `oldconfig` and get an interactive shell to pipe choices to the user
             let mut make_oldconfig = Command::new("make")
                 .arg("olddefconfig")

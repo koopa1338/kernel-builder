@@ -1,12 +1,12 @@
 [package]
 name = "kernel-builder"
 version = "0.4.0"
-edition = "2021"
+edition = "2024"
 authors = ["koopa1338 <sinner1991@gmail.com>"]
 license-file = "LICENSE.md"
 description = "select kernel version from available sources, build and install"
 repository = "https://github.com/koopa1338/kernel-builder"
-rust-version = "1.80.1"
+rust-version = "1.85.0"
 
 [dependencies]
 config = "0.14"
